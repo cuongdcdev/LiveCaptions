@@ -1,6 +1,8 @@
 # Live Captions
 
-![Screenshot of the application](https://github.com/abb128/LiveCaptions/blob/main/screenshot.png?raw=true)
+![Screenshot of the application](./screenshot.png)
+![Log history based on sessions](./history.png)
+
 
 Live Captions is an application that provides live captioning for the Linux desktop.
 
