@@ -1,6 +1,5 @@
 /* history.h
  *
- *
  * Copyright 2022 abb128
  *
  * This program is free software: you can redistribute it and/or modify
@@ -17,75 +16,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#pragma once
+#ifndef LCAP_HISTORY_H
+#define LCAP_HISTORY_H
 
 #include <stddef.h>
-#include <stdint.h>
-#include <sys/types.h>
+#include <stdbool.h>
 #include <april_api.h>
-#include <adwaita.h>
 
-#define HISTORY_TOKEN_MAX_CHARS 32
-#define HISTORY_MAX_TOKENS 256
-
-extern char *default_history_file;
-
-
-// A single token. The token text is inline for serialization simplicity
-struct history_token {
-    char token[HISTORY_TOKEN_MAX_CHARS]; // should this be a dynamic array?
-    float logprob;
-    AprilTokenFlagBits flags;
-};
-
-// A single history entry containing a collection of tokens
-// An entry consisting of 0 tokens denotes silence
-struct history_entry {
-    time_t timestamp;
-    size_t tokens_count;
-    struct history_token *tokens;
-};
-
-// A Live Captions session
-struct history_session {
-    time_t timestamp;
-    size_t entries_count;
-    struct history_entry *entries;
-};
-
-// List of past sessions
-struct past_history_sessions {
-    size_t num_sessions;
-    struct history_session *sessions;
-};
-
-// Use static global variables for simplicity
-
-// Initialize history
+// Initialize history tracking
 void history_init(void);
 
 // Every time finalized, commit to list of history_entry
 void commit_tokens_to_current_history(const AprilToken *tokens,
                                       size_t tokens_count);
 
-
 // Puts an empty entry into history meaning silence
 void save_silence_to_history(void);
 
-// Serialize/Deserialize list of history_entry
-void save_current_history(const char *path);
-void load_history_from(const char *path);
+// Pause or Resume writing to history
+bool history_pause_toggle(void);
 
-// Convert to text file
-void export_history_as_text(const char *path);
+// Finalize and stop current session log
+void history_stop_session(void);
 
-
-// 0 returns the active session
-// 1 returns the previous session
-// 2 returns the one prior to the previous
-// ...
-// returns NULL once reached the first session
-const struct history_session *get_history_session(size_t idx);
-
-
-void erase_all_history(void);
+#endif

@@ -36,7 +36,6 @@ struct _LiveCaptionsSettings {
 
     AdwSwitchRow *filter_profanity_switch;
     AdwSwitchRow *filter_slurs_switch;
-    AdwSwitchRow *save_history_switch;
     AdwSwitchRow *keep_above_switch;
     AdwActionRow *text_stream_switch;
 
@@ -50,6 +49,8 @@ struct _LiveCaptionsSettings {
     GtkLabel *keep_above_instructions;
 
     AdwPreferencesGroup *models_list;
+    AdwPreferencesPage *history_page;
+    AdwPreferencesGroup *history_list;
     GtkCheckButton *radio_button_1;
 
     GtkFileFilter *file_filter;

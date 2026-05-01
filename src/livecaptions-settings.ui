@@ -116,33 +116,6 @@
 
         <child>
           <object class="AdwPreferencesGroup">
-            <property name="title" translatable="yes">History</property>
-
-            <child>
-              <object class="AdwSwitchRow" id="save_history_switch">
-                <property name="title" translatable="yes">Save History</property>
-                <property name="subtitle" translatable="yes">If disabled, session history will be lost when app is closed</property>
-              </object>
-            </child>
-
-            <child>
-              <object class="AdwActionRow">
-                <property name="title" translatable="yes">View History</property>
-                <property name="activatable">True</property>
-                <signal name="activated" handler="open_history" swapped="yes"/>
-                <child>
-                  <object class="GtkImage">
-                    <property name="icon_name">go-next-symbolic</property>
-                  </object>
-                </child>
-              </object>
-            </child>
-
-          </object>
-        </child>
-
-        <child>
-          <object class="AdwPreferencesGroup">
             <property name="description" translatable="yes">Please keep in mind that even if the source audio is clean, the model may sometimes make mistakes and include profanity where there isn't.</property>
             <property name="title" translatable="yes">Filtering</property>
 
@@ -242,6 +215,18 @@
       </object>
     </child>
 
+    <child>
+      <object class="AdwPreferencesPage" id="history_page">
+        <property name="icon_name">document-open-recent-symbolic</property>
+        <property name="title">History</property>
+
+        <child>
+          <object class="AdwPreferencesGroup" id="history_list">
+            <property name="title" translatable="yes">Saved Sessions</property>
+          </object>
+        </child>
+      </object>
+    </child>
 
     <child>
       <object class="AdwPreferencesPage">

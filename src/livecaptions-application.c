@@ -54,7 +54,6 @@ static void livecaptions_application_finalize(GObject *object) {
     LiveCaptionsApplication *self = (LiveCaptionsApplication *)object;
     asr_thread_pause(self->asr, true);
 
-    save_current_history(default_history_file);
 
     audio_thread audio = self->audio;
 
@@ -83,7 +82,7 @@ static void livecaptions_application_show_welcome(LiveCaptionsApplication *self)
 
 static void livecaptions_application_activate(GApplication *app) {
     history_init();
-    load_history_from(default_history_file);
+
 
     GtkWindow *window;
 
@@ -248,7 +247,21 @@ livecaptions_application_show_preferences(G_GNUC_UNUSED GSimpleAction *action,
     preferences->application = self;
 
     gtk_window_present (GTK_WINDOW (preferences));
+}
 
+static void
+livecaptions_application_show_history(G_GNUC_UNUSED GSimpleAction *action,
+                                      G_GNUC_UNUSED GVariant     *parameter,
+                                      gpointer       user_data)
+{
+    LiveCaptionsApplication *self = LIVECAPTIONS_APPLICATION(user_data);
+    if(self->welcome != NULL) return;
+
+    LiveCaptionsSettings *preferences = g_object_new(LIVECAPTIONS_TYPE_SETTINGS, "application", GTK_APPLICATION(self), NULL);
+    preferences->application = self;
+
+    adw_preferences_window_set_visible_page(ADW_PREFERENCES_WINDOW(preferences), preferences->history_page);
+    gtk_window_present (GTK_WINDOW (preferences));
 }
 
 
@@ -327,6 +340,10 @@ static void livecaptions_application_init(LiveCaptionsApplication *self) {
     g_autoptr(GSimpleAction) prefs_action = g_simple_action_new("preferences", NULL);
     g_signal_connect(prefs_action, "activate", G_CALLBACK(livecaptions_application_show_preferences), self);
     g_action_map_add_action(G_ACTION_MAP(self), G_ACTION(prefs_action));
+
+    g_autoptr(GSimpleAction) history_action = g_simple_action_new("history", NULL);
+    g_signal_connect(history_action, "activate", G_CALLBACK(livecaptions_application_show_history), self);
+    g_action_map_add_action(G_ACTION_MAP(self), G_ACTION(history_action));
 
     gboolean use_microphone = g_settings_get_boolean(self->settings, "microphone");
     g_autoptr(GSimpleAction) mic_action = g_simple_action_new_stateful("microphone", NULL, g_variant_new_boolean(use_microphone));

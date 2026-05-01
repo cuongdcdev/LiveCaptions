@@ -39,6 +39,8 @@ static void livecaptions_window_class_init (LiveCaptionsWindowClass *klass) {
     gtk_widget_class_bind_template_child(widget_class, LiveCaptionsWindow, too_slow_warning);
     gtk_widget_class_bind_template_child(widget_class, LiveCaptionsWindow, slow_warning);
     gtk_widget_class_bind_template_child(widget_class, LiveCaptionsWindow, slowest_warning);
+    gtk_widget_class_bind_template_child(widget_class, LiveCaptionsWindow, pause_button);
+    gtk_widget_class_bind_template_child(widget_class, LiveCaptionsWindow, stop_button);
 }
 
 static void change_button_layout(LiveCaptionsWindow *self, gint text_height){
@@ -189,6 +191,19 @@ static gboolean show_relevant_slow_warning(void *userdata) {
     return G_SOURCE_CONTINUE;
 }
 
+static void on_pause_toggled(GtkToggleButton *button, gpointer user_data) {
+    bool is_paused = history_pause_toggle();
+    if (is_paused) {
+        gtk_button_set_label(GTK_BUTTON(button), "Resume");
+    } else {
+        gtk_button_set_label(GTK_BUTTON(button), "Pause");
+    }
+}
+
+static void on_stop_clicked(GtkButton *button, gpointer user_data) {
+    history_stop_session();
+}
+
 static void livecaptions_window_init(LiveCaptionsWindow *self) {
     gtk_widget_init_template(GTK_WIDGET(self));
 
@@ -204,6 +219,9 @@ static void livecaptions_window_init(LiveCaptionsWindow *self) {
 
     self->font_layout = NULL;
     self->font_layout_counter = 0;
+
+    g_signal_connect(self->pause_button, "toggled", G_CALLBACK(on_pause_toggled), self);
+    g_signal_connect(self->stop_button, "clicked", G_CALLBACK(on_stop_clicked), self);
 
     update_font(self);
     update_window_transparency(self);

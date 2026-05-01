@@ -12,7 +12,6 @@ livecaptions_sources = [
   'profanity-filter.c',
   'window-helper.c',
   'history.c',
-  'livecaptions-history-window.c',
   'dbus-interface.c'
 ]
 

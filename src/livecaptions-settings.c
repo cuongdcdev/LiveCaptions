@@ -24,7 +24,6 @@
 #include "livecaptions-settings.h"
 #include "livecaptions-application.h"
 #include "history.h"
-#include "livecaptions-history-window.h"
 #include "asrproc.h"
 
 G_DEFINE_TYPE(LiveCaptionsSettings, livecaptions_settings, ADW_TYPE_PREFERENCES_WINDOW)
@@ -121,16 +120,7 @@ static void download_models_cb(LiveCaptionsSettings *self) {
     );
 }
 
-static void open_history(LiveCaptionsSettings *self) {
-    GtkRoot *root = gtk_widget_get_root(GTK_WIDGET(self));
 
-    LiveCaptionsHistoryWindow *window = g_object_new(LIVECAPTIONS_TYPE_HISTORY_WINDOW, "transient-for", root, NULL);
-    
-    gtk_window_present(GTK_WINDOW(window));
-
-    gtk_window_close(GTK_WINDOW(self));
-    gtk_window_destroy(GTK_WINDOW(self));
-}
 
 static const char *get_always_on_top_tip_text(){
     const char *desktop = getenv("XDG_CURRENT_DESKTOP");
@@ -186,7 +176,7 @@ static void livecaptions_settings_class_init(LiveCaptionsSettingsClass *klass) {
     gtk_widget_class_bind_template_child (widget_class, LiveCaptionsSettings, fade_text_switch);
     gtk_widget_class_bind_template_child (widget_class, LiveCaptionsSettings, filter_profanity_switch);
     gtk_widget_class_bind_template_child (widget_class, LiveCaptionsSettings, filter_slurs_switch);
-    gtk_widget_class_bind_template_child (widget_class, LiveCaptionsSettings, save_history_switch);
+    gtk_widget_class_bind_template_child (widget_class, LiveCaptionsSettings, filter_slurs_switch);
     gtk_widget_class_bind_template_child (widget_class, LiveCaptionsSettings, keep_above_switch);
     gtk_widget_class_bind_template_child (widget_class, LiveCaptionsSettings, text_stream_switch);
 
@@ -199,6 +189,8 @@ static void livecaptions_settings_class_init(LiveCaptionsSettingsClass *klass) {
     gtk_widget_class_bind_template_child (widget_class, LiveCaptionsSettings, benchmark_label);
     gtk_widget_class_bind_template_child (widget_class, LiveCaptionsSettings, keep_above_instructions);
 
+    gtk_widget_class_bind_template_child (widget_class, LiveCaptionsSettings, history_list);
+    gtk_widget_class_bind_template_child (widget_class, LiveCaptionsSettings, history_page);
     gtk_widget_class_bind_template_child (widget_class, LiveCaptionsSettings, models_list);
     gtk_widget_class_bind_template_child (widget_class, LiveCaptionsSettings, radio_button_1);
     gtk_widget_class_bind_template_child (widget_class, LiveCaptionsSettings, file_filter);
@@ -206,7 +198,7 @@ static void livecaptions_settings_class_init(LiveCaptionsSettingsClass *klass) {
     gtk_widget_class_bind_template_callback (widget_class, report_cb);
     gtk_widget_class_bind_template_callback (widget_class, about_cb);
     gtk_widget_class_bind_template_callback (widget_class, rerun_benchmark_cb);
-    gtk_widget_class_bind_template_callback (widget_class, open_history);
+
     gtk_widget_class_bind_template_callback (widget_class, add_model_cb);
     gtk_widget_class_bind_template_callback (widget_class, on_builtin_toggled);
     gtk_widget_class_bind_template_callback (widget_class, download_models_cb);
@@ -315,6 +307,93 @@ static void insert_model_to_list(LiveCaptionsSettings *self, gchar *model) {
     g_signal_connect(delete_button, "clicked", G_CALLBACK(on_model_deleted), self);
 }
 
+static void on_history_open_clicked(GtkButton *button, LiveCaptionsSettings *self) {
+    const char *filepath = g_quark_to_string((GQuark)g_object_get_data(G_OBJECT(button), "lcap-history-path"));
+    
+    g_autoptr(GFile) file = g_file_new_for_path(filepath);
+    char *uri = g_file_get_uri(file);
+    gtk_show_uri(GTK_WINDOW(self), uri, GDK_CURRENT_TIME);
+    g_free(uri);
+}
+
+static void on_history_export_response(GtkNativeDialog *native, int response, LiveCaptionsSettings *self) {
+    if (response == GTK_RESPONSE_ACCEPT) {
+        GtkFileChooser *chooser = GTK_FILE_CHOOSER(native);
+        g_autoptr(GFile) dest_file = gtk_file_chooser_get_file(chooser);
+        const char *src_filepath = g_quark_to_string((GQuark)g_object_get_data(G_OBJECT(native), "lcap-history-path"));
+        
+        g_autoptr(GFile) src_file = g_file_new_for_path(src_filepath);
+        g_autoptr(GError) error = NULL;
+        
+        g_file_copy(src_file, dest_file, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, &error);
+        if (error != NULL) {
+            printf("Error exporting file: %s\n", error->message);
+        }
+    }
+    g_object_unref(native);
+}
+
+static void on_history_export_clicked(GtkButton *button, LiveCaptionsSettings *self) {
+    const char *filepath = g_quark_to_string((GQuark)g_object_get_data(G_OBJECT(button), "lcap-history-path"));
+    
+    GtkFileChooserNative *native = gtk_file_chooser_native_new("Export History",
+                                         GTK_WINDOW(self),
+                                         GTK_FILE_CHOOSER_ACTION_SAVE,
+                                         _("_Export"),
+                                         _("_Cancel"));
+                                         
+    GtkFileChooser *chooser = GTK_FILE_CHOOSER(native);
+    char *basename = g_path_get_basename(filepath);
+    gtk_file_chooser_set_current_name(chooser, basename);
+    g_free(basename);
+
+    g_object_set_data(G_OBJECT(native), "lcap-history-path", (gpointer)g_quark_from_string(filepath));
+    
+    gtk_native_dialog_show(GTK_NATIVE_DIALOG(native));
+    g_signal_connect(native, "response", G_CALLBACK(on_history_export_response), self);
+}
+
+static void init_history_page(LiveCaptionsSettings *self) {
+    const char *data_dir = g_get_user_data_dir();
+    char history_dir[1024];
+    snprintf(history_dir, sizeof(history_dir), "%s/livecaptions/history", data_dir);
+
+    GDir *dir = g_dir_open(history_dir, 0, NULL);
+    if (!dir) return;
+
+    const gchar *filename;
+    while ((filename = g_dir_read_name(dir)) != NULL) {
+        if (!g_str_has_suffix(filename, ".txt")) continue;
+
+        char filepath[2048];
+        snprintf(filepath, sizeof(filepath), "%s/%s", history_dir, filename);
+        
+        AdwActionRow *row = g_object_new(ADW_TYPE_ACTION_ROW, NULL);
+        adw_preferences_row_set_title(ADW_PREFERENCES_ROW(row), filename);
+
+        GtkWidget *open_button = gtk_button_new_with_label("Open");
+        gtk_widget_set_valign(open_button, GTK_ALIGN_CENTER);
+        gtk_widget_add_css_class(open_button, "flat");
+
+        GtkWidget *export_button = gtk_button_new_with_label("Export");
+        gtk_widget_set_valign(export_button, GTK_ALIGN_CENTER);
+        gtk_widget_add_css_class(export_button, "flat");
+
+        gpointer quark = (gpointer)g_quark_from_string(filepath);
+        g_object_set_data(G_OBJECT(open_button), "lcap-history-path", quark);
+        g_signal_connect(open_button, "clicked", G_CALLBACK(on_history_open_clicked), self);
+        
+        g_object_set_data(G_OBJECT(export_button), "lcap-history-path", quark);
+        g_signal_connect(export_button, "clicked", G_CALLBACK(on_history_export_clicked), self);
+
+        adw_action_row_add_suffix(row, open_button);
+        adw_action_row_add_suffix(row, export_button);
+
+        adw_preferences_group_add(self->history_list, GTK_WIDGET(row));
+    }
+    g_dir_close(dir);
+}
+
 static void init_models_page(LiveCaptionsSettings *self) {
     gchar **models = g_settings_get_strv(self->settings, "installed-models");
 
@@ -412,7 +491,7 @@ static void livecaptions_settings_init(LiveCaptionsSettings *self) {
     g_settings_bind(self->settings, "fade-text", self->fade_text_switch, "active", G_SETTINGS_BIND_DEFAULT);
     g_settings_bind(self->settings, "filter-profanity", self->filter_profanity_switch, "active", G_SETTINGS_BIND_DEFAULT);
     g_settings_bind(self->settings, "filter-slurs", self->filter_slurs_switch, "active", G_SETTINGS_BIND_DEFAULT);
-    g_settings_bind(self->settings, "save-history", self->save_history_switch, "active", G_SETTINGS_BIND_DEFAULT);
+
     g_settings_bind(self->settings, "line-width", self->line_width_adjustment, "value", G_SETTINGS_BIND_DEFAULT);
     g_settings_bind(self->settings, "window-transparency", self->window_transparency_adjustment, "value", G_SETTINGS_BIND_DEFAULT);
     g_settings_bind(self->settings, "text-stream-active", self->text_stream_switch, "active", G_SETTINGS_BIND_DEFAULT);
@@ -443,5 +522,6 @@ static void livecaptions_settings_init(LiveCaptionsSettings *self) {
         gtk_label_set_label(self->keep_above_instructions, always_on_top_text);
     }
 
+    init_history_page(self);
     init_models_page(self);
 }

@@ -20,6 +20,9 @@ Features:
 * Does not rely on any proprietary services/libraries
 * Adjust font, font size, and text casing
 * Optional token-level confidence text fading
+* Session-based text history logs saved automatically
+* Pause/Resume and Stop controls directly in the main window
+* View History interface to easily browse, open, and export past caption sessions
 
 Running this requires a somewhat-decent CPU that can perform realtime captioning, especially if you want to be doing other tasks (such as video decode) while running Live Captions. It has been tested working on:
 * Intel i7-2670QM (2011)
@@ -57,7 +60,30 @@ You can build this easily with GNOME Builder. After cloning, open the project di
 
 If you are using Flatpak GNOME Builder and experience issues running this (for example, some cryptic X Window System error), please try using your distro's native packaged version of GNOME Builder instead of Flatpak (e.g. `sudo apt install gnome-builder`).
 
-## Option 2: Building from the terminal (not as easy)
+## Option 2: Building with Flatpak-Builder (recommended for Linux)
+This project includes a Flatpak manifest that makes it easy to build and run in an isolated environment with all dependencies automatically managed.
+
+First, ensure you have `flatpak` and `flatpak-builder` installed on your system. Then, install the GNOME 50 SDK which is required for the build:
+```bash
+flatpak install flathub org.gnome.Sdk//50
+```
+
+To build and install the application locally to your user repository, run:
+```bash
+flatpak-builder --user --install --force-clean build-dir build-aux/flatpak/net.sapples.LiveCaptions.json
+```
+
+Once built and installed, you can run the application with:
+```bash
+flatpak run net.sapples.LiveCaptions
+```
+
+To package your built application into a single `.flatpak` installer file to share with others, run:
+```bash
+flatpak build-bundle ~/.local/share/flatpak/repo LiveCaptions-modified.flatpak net.sapples.LiveCaptions
+```
+
+## Option 3: Building from the terminal (not as easy)
 First you must [download ONNXRuntime v1.14.1 (Linux)](https://github.com/microsoft/onnxruntime/releases/download/v1.14.1/onnxruntime-linux-x64-1.14.1.tgz) or [ONNXRuntime v.1.14.1 (Mac OS x86)](https://github.com/microsoft/onnxruntime/releases/download/v1.14.1/onnxruntime-osx-x86_64-1.14.1.tgz), extract it somewhere, and set the environment variables to point to it.
 
 ### Make ONNX available
